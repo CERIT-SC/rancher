@@ -167,10 +167,15 @@ func (t *SystemStore) Create(group schema.GroupResource, token *ext.Token, opts 
 		t.initialized = true
 	}
 
-	// reject creation of token which already exists
-	currentSecret, err := t.secretClient.Get(TokenNamespace, token.Name, metav1.GetOptions{})
-	if err == nil && currentSecret != nil {
-		return nil, apierrors.NewAlreadyExists(group, token.Name)
+	ensureNameOrGenerateName(token)
+	// we check the Name directly. because of the ensure... we know that
+	// GenerateName is not set. as it squashes the name in that case.
+	if token.ObjectMeta.Name != "" {
+		// reject creation of a token which already exists
+		currentSecret, err := t.secretClient.Get(TokenNamespace, token.Name, metav1.GetOptions{})
+		if err == nil && currentSecret != nil {
+			return nil, apierrors.NewAlreadyExists(group, token.Name)
+		}
 	}
 
 	// reject user-provided token value, or hash
@@ -692,12 +697,20 @@ func secretFromToken(token *ext.Token) *corev1.Secret {
 	}
 	labels[UserIDLabel] = token.Spec.UserID
 
+	// ensure that only one of name or generateName is passed through.
+	name := token.Name
+	genName := token.GenerateName
+	if genName != "" {
+		name = ""
+	}
+
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   TokenNamespace,
-			Name:        token.Name,
-			Labels:      labels,
-			Annotations: token.Annotations,
+			Namespace:    TokenNamespace,
+			Name:         name,
+			GenerateName: genName,
+			Labels:       labels,
+			Annotations:  token.Annotations,
 		},
 		StringData: make(map[string]string),
 		Data:       make(map[string][]byte),
@@ -883,4 +896,24 @@ func setExpired(token *ext.Token) error {
 	token.Status.ExpiresAt = string(eAt[1 : len(eAt)-1])
 	token.Status.Expired = isExpired
 	return nil
+}
+
+// ensureNameOrGenerateName ensures that the token has either a proper name, or
+// a generateName clause. Note, this function does __not generate__ the name if
+// the latter is present. That is delegated to the backend store, i.e. the
+// secrets holding tokens. See `secretFromToken` above.
+func ensureNameOrGenerateName(token *ext.Token) error {
+	// NOTE: When both name and generateName are set the generateName has precedence
+
+	if token.ObjectMeta.GenerateName != "" {
+		token.ObjectMeta.Name = ""
+		return nil
+	}
+	if token.ObjectMeta.Name != "" {
+		return nil
+	}
+
+	return apierrors.NewBadRequest(fmt.Sprintf(
+		"Token \"%s\" is invalid: metadata.name: Required value: name or generateName is required",
+		token.ObjectMeta.Name))
 }
