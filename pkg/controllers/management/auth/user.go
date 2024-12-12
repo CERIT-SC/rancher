@@ -185,7 +185,7 @@ func (l *userLifecycle) Updated(user *v3.User) (runtime.Object, error) {
 		for _, token := range extTokens {
 			if token.GetIsDerived() {
 				// Non-login token. Only disable it
-				logrus.Infof("[%v] Disabling ext token %v for user %v",
+				logrus.Infof("[%v] Disabling derived ext token %v for disabled user %v",
 					userController, token.GetName(), token.GetUserID())
 				token.Spec.Enabled = false
 				_, err := l.extTokenStore.Update(token, &metav1.UpdateOptions{})
@@ -194,7 +194,7 @@ func (l *userLifecycle) Updated(user *v3.User) (runtime.Object, error) {
 				}
 			} else {
 				// Login token. Delete it.
-				logrus.Infof("[%v] Deleting token %v for user %v",
+				logrus.Infof("[%v] Deleting login ext token %v for disabled user %v",
 					userController, token.GetName(), token.GetUserID())
 				err := l.extTokenStore.Delete(token.GetName(), &metav1.DeleteOptions{})
 				if err != nil {
@@ -453,7 +453,7 @@ func (l *userLifecycle) deleteClusterUserAttributes(username string, tokens []*v
 
 func (l *userLifecycle) deleteAllTokens(tokens []*v3.Token) error {
 	for _, token := range tokens {
-		logrus.Infof("[%v] Deleting token %v for user %v", userController, token.Name, token.UserID)
+		logrus.Infof("[%v] All: Deleting token %v for user %v", userController, token.Name, token.UserID)
 		err := l.tokens.Delete(token.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			return fmt.Errorf("error deleting token: %v", err)
@@ -465,7 +465,7 @@ func (l *userLifecycle) deleteAllTokens(tokens []*v3.Token) error {
 
 func (l *userLifecycle) deleteAllExtTokens(tokens []*ext.Token) error {
 	for _, token := range tokens {
-		logrus.Infof("[%v] Deleting token %v for user %v",
+		logrus.Infof("[%v] All: Deleting ext token %v for user %v",
 			userController, token.GetName(), token.GetUserID())
 		err := l.extTokenStore.Delete(token.GetName(), &metav1.DeleteOptions{})
 		if err != nil {
