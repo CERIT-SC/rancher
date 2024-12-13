@@ -162,6 +162,7 @@ func (m *Manager) createDerivedToken(jsonInput clientv3.Token, tokenAuthValue st
 			UserID:      token.GetUserID(),
 			Description: jsonInput.Description,
 			ClusterName: jsonInput.ClusterID,
+			Enabled:     true,
 		},
 	}
 
@@ -813,6 +814,7 @@ func (m *Manager) NewLoginToken(userID string, userPrincipal v3.Principal, group
 			TTL:         ttl,
 			UserID:      userID,
 			Description: description,
+			Enabled:     true,
 		},
 	}
 
