@@ -1,6 +1,7 @@
 package tokens
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -385,6 +386,8 @@ func (t *SystemStore) UpdateLastUsedAt(name string, now time.Time) error {
 	// Operate directly on the backend secret holding the token
 
 	nowStr := now.Format(time.RFC3339)
+	nowEncoded := base64.StdEncoding.EncodeToString([]byte(nowStr))
+
 	patch, err := json.Marshal([]struct {
 		Op    string `json:"op"`
 		Path  string `json:"path"`
@@ -392,7 +395,7 @@ func (t *SystemStore) UpdateLastUsedAt(name string, now time.Time) error {
 	}{{
 		Op:    "replace",
 		Path:  "/data/" + fieldLastUsedAt,
-		Value: nowStr,
+		Value: nowEncoded,
 	}})
 	if err != nil {
 		return err
