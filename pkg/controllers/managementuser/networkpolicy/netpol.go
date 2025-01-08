@@ -27,8 +27,9 @@ import (
 )
 
 const (
-	systemProjectLabel = "authz.management.cattle.io/system-project"
-	creatorLabel       = "cattle.io/creator"
+	systemProjectLabel  = "authz.management.cattle.io/system-project"
+	creatorLabel        = "cattle.io/creator"
+	avoidDefaultNPLabel = "cattle.io/avoidDefaultNetworkPolicy"
 )
 
 const (
@@ -152,6 +153,13 @@ func (npmgr *netpolMgr) programNetworkPolicy(projectID string, clusterNamespace 
 			continue
 		}
 
+		// Ignore objects with specific label to ignore default network policies
+		// This is to prevent creating default network policies if the "spec.enableNetworkPolicy" in "clusters.management.cattle.io" is enabled
+		if ignore, ok := aNS.Labels[avoidDefaultNPLabel]; ok && ignore == "true" {
+			logrus.Errorf("netPolMgr: programNetworkPolicy: skipping programming default network policy for ns=%v due to \"%v\" label", aNS.Name, avoidDefaultNPLabel)
+			continue
+		}
+
 		// namespace is not in system project, so ensure it doesn't have the default policy for system project based namespaces
 		if id != systemProjectID {
 			npmgr.delete(aNS.Name, defaultSystemProjectNamespacePolicyName)
@@ -257,6 +265,13 @@ func (npmgr *netpolMgr) handleHostNetwork(clusterNamespace string) error {
 		return fmt.Errorf("netpolMgr: handleHostNetwork getSystemNamespaces: err=%v", err)
 	}
 	for _, aNS := range namespaces {
+		// Ignore objects with specific label to ignore default network policies
+		// This is to prevent creating default network policies if the "spec.enableNetworkPolicy" in "clusters.management.cattle.io" is enabled
+		if ignore, ok := aNS.Labels[avoidDefaultNPLabel]; ok && ignore == "true" {
+			logrus.Errorf("netPolMgr: handleHostNetwork: skipping programming hostNetwork network policy for ns=%v due to \"%v\" label", aNS.Name, avoidDefaultNPLabel)
+			continue
+		}
+
 		projectID, _ := aNS.Labels[nslabels.ProjectIDFieldLabel]
 		if systemNamespaces[aNS.Name] || projectID == "" {
 			npmgr.delete(aNS.Name, hostNetworkPolicyName)
